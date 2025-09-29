@@ -14,8 +14,7 @@ import org.junit.jupiter.api.*;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class MessageControllerTest {
     private EmbeddedServer server;
@@ -57,7 +56,7 @@ public class MessageControllerTest {
 
     @Test
     void postedRocketReturnedInList() {
-        var post = HttpRequest.POST("/messages", rocketLaunchMessage("abc123", 500, "ARTEMIS"));
+        var post = HttpRequest.POST("/messages", rocketLaunchMessage("abc123", 500, "ARTEMIS", "Falcon-9"));
 
         var responsePost = client.exchange(post);
         assertEquals(200, responsePost.code());
@@ -66,13 +65,13 @@ public class MessageControllerTest {
         var responseRockets = client.exchange("/rockets");
         assertEquals(200, responseRockets.code());
 
-        var rocketList = readResponse(responseRockets);
+        var rocketList = readResponse(responseRockets, new TypeReference<>() {});
         assertEquals(1, rocketList.size());
     }
 
     @Test
     void explodedRocketStatusChanged() {
-        var post = HttpRequest.POST("/messages", rocketLaunchMessage("abc123", 500, "ARTEMIS"));
+        var post = HttpRequest.POST("/messages", rocketLaunchMessage("abc123", 500, "ARTEMIS", "Falcon-9"));
 
         var responsePost = client.exchange(post);
         assertEquals(200, responsePost.code());
@@ -106,8 +105,8 @@ public class MessageControllerTest {
 
     @Test
     void defaultSortByMission() {
-        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("abc123", 500, "ARTEMIS")));
-        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("abc456", 500, "VOYAGER")));
+        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("abc123", 500, "ARTEMIS", "Falcon-9")));
+        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("abc456", 500, "VOYAGER", "Falcon-9")));
 
         var rocketListNoSort = readResponse(client.exchange("/rockets"));
         var rocketListSortMission = readResponse(client.exchange("/rockets?sortBy=mission"));
@@ -125,8 +124,8 @@ public class MessageControllerTest {
 
     @Test
     void sortByOtherProperties() {
-        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("abc123", 500, "ARTEMIS")));
-        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("abc456", 1000, "VOYAGER")));
+        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("abc123", 500, "ARTEMIS", "Falcon-9")));
+        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("abc456", 1000, "VOYAGER", "Falcon-9")));
 
         var rocketListBySpeedDesc = readResponse(client.exchange("/rockets?sortBy=speed&orderBy=desc"));
         var rocketListBySpeedAsc = readResponse(client.exchange("/rockets?sortBy=speed"));
@@ -135,15 +134,24 @@ public class MessageControllerTest {
         assertEquals(500, rocketListBySpeedAsc.getFirst().getSpeed());
     }
 
-    private static List<Rocket> readResponse(HttpResponse<?> respSortMission) {
-        try {
-            return App.objectMapper.readValue(respSortMission.getBody(String.class).get(), new TypeReference<>() {});
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+    @Test
+    void rocketsByType() {
+        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("abc123", 500, "ARTEMIS", "Falcon-9")));
+        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("abc456", 500, "ARTEMIS", "Falcon-9")));
+        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("xyz123", 1000, "VOYAGER", "Titan-IV")));
+        client.exchange(HttpRequest.POST("/messages", rocketLaunchMessage("xyz456", 1000, "VOYAGER", "Juno-I")));
+
+
+        var rocketTypes = readResponse(client.exchange("/rockets/types"), new TypeReference<List<String>>() {});
+        assertEquals(3, rocketTypes.size());
+        assertTrue(rocketTypes.containsAll(List.of("Falcon-9", "Titan-IV", "Juno-I")));
+
+        assertEquals(2, readResponse(client.exchange("/rockets?type=Falcon-9")).size());
+        assertEquals(1, readResponse(client.exchange("/rockets?type=Titan-IV")).size());
+        assertEquals(1, readResponse(client.exchange("/rockets?type=Juno-I")).size());
     }
 
-    private static String rocketLaunchMessage(String id, int speed, String mission) {
+    private static String rocketLaunchMessage(String id, int speed, String mission, String type) {
         return """
             {
                 "metadata": {
@@ -153,11 +161,23 @@ public class MessageControllerTest {
                     "messageType": "RocketLaunched"
                 },
                 "message": {
-                    "type": "Falcon-9",
+                    "type": "%s",
                     "launchSpeed": %s,
                     "mission": "%s"
                 }
             }
-            """.formatted(id, speed, mission);
+            """.formatted(id, type, speed, mission);
+    }
+
+    private static List<Rocket> readResponse(HttpResponse<?> httpResponse) {
+        return readResponse(httpResponse, new TypeReference<>() {});
+    }
+
+    private static <T> List<T> readResponse(HttpResponse<?> httpResponse, TypeReference<List<T>> typeRef) {
+        try {
+            return App.objectMapper.readValue(httpResponse.getBody(String.class).get(), typeRef);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -78,7 +78,7 @@ curl localhost:8088/rockets/8a6e7887-064f-54fa-b5ee-fac02e0dc05c
 The task description was really clear and had all the necessary details to get started 😊.
 
 I'm using MacOS on Apple Silicon, so I ran the arm64 version.  
-I've been mostly working with Java (and in backend with Spring Boot), however it has certain pain points in performance and testing, which is why for the web server framework I chose Micronaut instead.
+I've been mostly working with Java (and in backend with Spring Boot), however it has certain pain points in performance and testing, which is why for the web server framework I chose Micronaut instead, so there most likely is some awkwardness.
 
 
 # Solution description
@@ -106,6 +106,12 @@ Things I would add/change for a real-world application. Not an exhaustive list, 
 - return data history, for example speed by datetime, a rocket's mission history
 - return some statistics for the imaginary dashboard that would use this REST API (e.g. average speed, lifetime by rocket type, lifetime by mission...)
 
+# Metrics
+## Test coverage
+IntelliJ reports:
+- Method 89%
+- Line 88%
+- Branch 74%
 
 # Development
 ## Run tests

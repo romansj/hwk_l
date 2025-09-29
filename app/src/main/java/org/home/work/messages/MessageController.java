@@ -14,7 +14,7 @@ import java.time.ZonedDateTime;
 import java.util.Map;
 
 @Slf4j
-@Controller("/messages") // rest semantics
+@Controller("/messages")
 public class MessageController {
 
     @Inject
